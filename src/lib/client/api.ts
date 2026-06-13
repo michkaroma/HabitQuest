@@ -1,6 +1,8 @@
 // src/lib/client/api.ts — wrapper fetch (gère le 401).
 // L'enfilement hors-ligne (outbox) est ajouté à l'étape 8.
 import { goto } from '$app/navigation';
+import { enqueueLog } from './outbox';
+import { sync } from '$lib/stores/sync.svelte';
 import type { ProgressDelta, HabitLog, HabitStatus, Quest } from '$lib/types';
 
 export class ApiFailure extends Error {
@@ -37,15 +39,30 @@ export interface LogResponse {
 	clientId: string | null;
 }
 
-/** Valide une habitude (en ligne). Lève en cas d'échec → le client annule l'optimisme. */
+export type LogOutcome = LogResponse | { queued: true };
+
+/** Valide une habitude. Hors-ligne ou en cas d'échec réseau → mise en file (outbox),
+ *  jamais perdue. Lève uniquement si la session a expiré (redirection /login). */
 export async function postLog(
 	habitId: number,
-	body: { date: string; status?: HabitStatus; note?: string | null; clientId?: string }
-): Promise<LogResponse> {
-	return apiFetch<LogResponse>(`/api/habits/${habitId}/log`, {
-		method: 'POST',
-		body: JSON.stringify(body)
-	});
+	body: { date: string; status?: HabitStatus; note?: string | null }
+): Promise<LogOutcome> {
+	const enqueue = async (): Promise<{ queued: true }> => {
+		await enqueueLog({ habitId, date: body.date, status: body.status, note: body.note });
+		sync.markPending();
+		return { queued: true };
+	};
+
+	if (typeof navigator !== 'undefined' && !navigator.onLine) return enqueue();
+	try {
+		return await apiFetch<LogResponse>(`/api/habits/${habitId}/log`, {
+			method: 'POST',
+			body: JSON.stringify(body)
+		});
+	} catch (e) {
+		if (e instanceof ApiFailure && e.code === 'UNAUTH') throw e;
+		return enqueue();
+	}
 }
 
 export async function deleteLog(

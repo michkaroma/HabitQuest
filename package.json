@@ -21,6 +21,7 @@
     "@sveltejs/vite-plugin-svelte": "^4.0.2",
     "@types/better-sqlite3": "^7.6.11",
     "@types/node": "^22.9.0",
+    "@types/node-cron": "^3.0.11",
     "@types/web-push": "^3.6.4",
     "@vite-pwa/sveltekit": "^0.6.7",
     "autoprefixer": "^10.4.20",
@@ -31,10 +32,16 @@
     "tailwindcss": "^3.4.15",
     "tsx": "^4.19.2",
     "typescript": "^5.6.3",
-    "vite": "^5.4.11"
+    "vite": "^5.4.11",
+    "workbox-cacheable-response": "^7.1.0",
+    "workbox-expiration": "^7.1.0",
+    "workbox-precaching": "^7.1.0",
+    "workbox-routing": "^7.1.0",
+    "workbox-strategies": "^7.1.0"
   },
   "dependencies": {
     "better-sqlite3": "^11.6.0",
+    "node-cron": "^3.0.3",
     "web-push": "^3.6.7"
   }
 }

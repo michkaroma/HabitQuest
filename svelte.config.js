@@ -5,7 +5,10 @@ import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 const config = {
 	preprocess: vitePreprocess(),
 	kit: {
-		adapter: adapter()
+		adapter: adapter({ out: 'build', precompress: true }),
+		// @vite-pwa possède le service worker : on désactive celui de SvelteKit.
+		serviceWorker: { register: false },
+		csrf: { checkOrigin: true }
 	}
 };
 

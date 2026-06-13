@@ -1,11 +1,14 @@
-// src/hooks.server.ts — garde d'accès (cookie session) + init de la base.
-// Le planificateur de rappels (node-cron) est ajouté à l'étape 8.
+// src/hooks.server.ts — garde d'accès (cookie session), init base + planificateur de rappels.
 import type { Handle, ServerInit } from '@sveltejs/kit';
 import { redirect, error } from '@sveltejs/kit';
+import cron from 'node-cron';
 import { SESSION_COOKIE, verifySession } from '$lib/server/auth';
 import { initDb } from '$lib/server/db';
 import { seedAchievementsCatalog } from '$lib/server/achievements';
 import { seedShop } from '$lib/server/shop';
+import { env } from '$lib/server/env';
+import { sendToAll } from '$lib/server/push';
+import { buildDailyReminder } from '$lib/server/reminder';
 
 const PUBLIC_EXACT = new Set<string>([
 	'/login',
@@ -14,16 +17,26 @@ const PUBLIC_EXACT = new Set<string>([
 	'/favicon.png',
 	'/robots.txt'
 ]);
-const PUBLIC_PREFIX = ['/api/auth', '/_app/', '/icons/', '/workbox-'];
+const PUBLIC_PREFIX = ['/api/auth', '/api/cron', '/_app/', '/icons/', '/workbox-'];
 
 function isPublic(pathname: string): boolean {
 	return PUBLIC_EXACT.has(pathname) || PUBLIC_PREFIX.some((p) => pathname.startsWith(p));
 }
 
+let started = false;
 export const init: ServerInit = async () => {
 	initDb();
 	seedAchievementsCatalog();
 	seedShop();
+	if (started || env.DISABLE_CRON) return;
+	started = true;
+	const [h, m] = env.PUSH_TIME.split(':');
+	if (cron.validate(`${Number(m)} ${Number(h)} * * *`)) {
+		cron.schedule(`${Number(m)} ${Number(h)} * * *`, async () => {
+			await sendToAll(buildDailyReminder());
+		});
+		console.log(`[cron] Rappel quotidien programmé à ${env.PUSH_TIME}`);
+	}
 };
 
 export const handle: Handle = async ({ event, resolve }) => {

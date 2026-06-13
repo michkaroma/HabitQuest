@@ -29,10 +29,14 @@
 		const prevXp = gameState.user.total_xp;
 		gameState.optimisticLog(habit);
 		try {
-			const { delta, quests } = await postLog(habit.id, { date: todayStr(), status: 'done' });
-			gameState.reconcile(delta, habit.id, 'done');
-			if (quests) gameState.setQuests(quests);
-			celebrateFromDelta(delta);
+			const r = await postLog(habit.id, { date: todayStr(), status: 'done' });
+			if ('queued' in r) {
+				celebration.toast('Validé hors-ligne. Synchro à la reconnexion. ⏳', 'info');
+			} else {
+				gameState.reconcile(r.delta, habit.id, 'done');
+				if (r.quests) gameState.setQuests(r.quests);
+				celebrateFromDelta(r.delta);
+			}
 		} catch (e) {
 			gameState.rollbackLog(habit.id, prev, prevXp);
 			celebration.toast(
@@ -50,10 +54,20 @@
 		busy = true;
 		showMore = false;
 		try {
-			const { delta, quests } = await postLog(habit.id, { date: todayStr(), status: s });
-			gameState.reconcile(delta, habit.id, s);
-			if (quests) gameState.setQuests(quests);
-			if (s === 'relapsed') celebration.toast('On note, on repart. Demain est un nouveau jour. 💪', 'info');
+			const r = await postLog(habit.id, { date: todayStr(), status: s });
+			if ('queued' in r) {
+				gameState.today[habit.id] = {
+					habitId: habit.id,
+					streak: gameState.today[habit.id]?.streak ?? 0,
+					logStatus: s
+				};
+				celebration.toast('Enregistré hors-ligne. ⏳', 'info');
+			} else {
+				gameState.reconcile(r.delta, habit.id, s);
+				if (r.quests) gameState.setQuests(r.quests);
+				if (s === 'relapsed')
+					celebration.toast('On note, on repart. Demain est un nouveau jour. 💪', 'info');
+			}
 		} catch (e) {
 			celebration.toast(e instanceof ApiFailure ? e.message : 'Action impossible.', 'danger');
 		} finally {
