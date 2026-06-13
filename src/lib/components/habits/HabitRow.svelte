@@ -29,8 +29,9 @@
 		const prevXp = gameState.user.total_xp;
 		gameState.optimisticLog(habit);
 		try {
-			const { delta } = await postLog(habit.id, { date: todayStr(), status: 'done' });
+			const { delta, quests } = await postLog(habit.id, { date: todayStr(), status: 'done' });
 			gameState.reconcile(delta, habit.id, 'done');
+			if (quests) gameState.setQuests(quests);
 			celebrateFromDelta(delta);
 		} catch (e) {
 			gameState.rollbackLog(habit.id, prev, prevXp);
@@ -49,8 +50,9 @@
 		busy = true;
 		showMore = false;
 		try {
-			const { delta } = await postLog(habit.id, { date: todayStr(), status: s });
+			const { delta, quests } = await postLog(habit.id, { date: todayStr(), status: s });
 			gameState.reconcile(delta, habit.id, s);
+			if (quests) gameState.setQuests(quests);
 			if (s === 'relapsed') celebration.toast('On note, on repart. Demain est un nouveau jour. 💪', 'info');
 		} catch (e) {
 			celebration.toast(e instanceof ApiFailure ? e.message : 'Action impossible.', 'danger');
@@ -64,8 +66,9 @@
 		busy = true;
 		showMore = false;
 		try {
-			const { delta } = await deleteLog(habit.id, todayStr());
+			const { delta, quests } = await deleteLog(habit.id, todayStr());
 			gameState.reconcile(delta, habit.id);
+			if (quests) gameState.setQuests(quests);
 			gameState.today[habit.id] = { habitId: habit.id, streak: delta.streakDays, logStatus: null };
 		} catch (e) {
 			celebration.toast(e instanceof ApiFailure ? e.message : 'Annulation impossible.', 'danger');

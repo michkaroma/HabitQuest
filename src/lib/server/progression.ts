@@ -1,7 +1,6 @@
 // src/lib/server/progression.ts
 // Moteur d'orchestration : applique une validation d'habitude (XP/pièces/séries,
-// montées de niveau) dans UNE transaction. Les quêtes et succès sont branchés à
-// l'étape 5 (voir les emplacements marqués TODO étape 5).
+// quêtes, succès, montées de niveau) dans UNE transaction.
 import {
 	getDb,
 	getHabit,
@@ -16,6 +15,8 @@ import {
 	logLevelEvent
 } from './db';
 import { currentStreakFromDates } from './streaks';
+import { recomputeQuestProgress } from './quests';
+import { runAchievementChecks } from './achievements';
 import { PROGRESSION, levelFromXp, xpWithStreak } from '../config/progression';
 import { COIN_ECONOMY, coinsForLevelUp } from '../config/shop';
 import type { HabitStatus, LevelInfo, ProgressDelta, LogResult, UserStateRow } from '../types';
@@ -35,10 +36,18 @@ export function levelInfoFromState(user: UserStateRow): LevelInfo {
 	};
 }
 
+/** Crédite des pièces de montée de niveau et journalise l'événement. */
+function applyLevelUp(levelBefore: number, levelAfter: number, prestige: number): void {
+	if (levelAfter <= levelBefore) return;
+	let coins = 0;
+	for (let l = levelBefore + 1; l <= levelAfter; l++) coins += coinsForLevelUp(l);
+	addCoins(coins);
+	logLevelEvent('level_up', levelBefore, levelAfter, prestige);
+}
+
 /**
- * Valide (ou re-valide) une habitude pour `date`. Idempotent : re-loguer le
- * même statut ne re-crédite rien (deltas nets). Renvoie l'état autoritaire pour
- * que le client réconcilie son optimisme.
+ * Valide (ou re-valide) une habitude pour `date`. Idempotent (deltas nets).
+ * Fait progresser les quêtes et vérifie les succès. Renvoie l'état autoritaire.
  */
 export function logHabit(
 	habitId: number,
@@ -51,11 +60,14 @@ export function logHabit(
 		const habit = getHabit(habitId);
 		if (!habit) throw new Error('HABIT_NOT_FOUND');
 
+		const before = getUserState();
+		const levelBefore = levelFromXp(before.total_xp).level;
+
 		const prior = getHabitLog(habitId, date);
 		const prevXp = prior?.xp_awarded ?? 0;
 		const prevCoins = prior?.coins_awarded ?? 0;
 
-		// Série AVANT l'action (on exclut la date courante du jeu de jours "done").
+		// Série AVANT l'action (on exclut la date courante).
 		const doneExcl = getHabitLogDates(habitId, 'done').filter((d) => d !== date);
 		const preStreak = currentStreakFromDates(doneExcl, date);
 
@@ -71,41 +83,35 @@ export function logHabit(
 		}
 		const xpAwarded = status === 'done' ? xpWithStreak(baseXp, preStreak) : 0;
 
-		const before = getUserState();
-		const levelBefore = levelFromXp(before.total_xp).level;
-
-		// Écrit le log puis applique le changement NET (anti double-comptage).
 		const log = upsertHabitLog({ habitId, date, status, note, xpAwarded, coinsAwarded });
-		const newTotalXp = addXp(xpAwarded - prevXp);
+		addXp(xpAwarded - prevXp);
 		addCoins(coinsAwarded - prevCoins);
 		setLastActive(date);
 
-		const levelAfter = levelFromXp(newTotalXp).level;
-		const leveledUp = levelAfter > levelBefore;
-		let levelUpCoins = 0;
-		if (leveledUp) {
-			for (let l = levelBefore + 1; l <= levelAfter; l++) levelUpCoins += coinsForLevelUp(l);
-			addCoins(levelUpCoins);
-			logLevelEvent('level_up', levelBefore, levelAfter, before.prestige);
-		}
+		// Quêtes : recalcul de progression (récompense réclamée manuellement).
+		recomputeQuestProgress(date);
 
-		// TODO étape 5 : faire progresser les quêtes (par `kind`) + vérifier les succès.
-		const unlockedAchievements: ProgressDelta['unlockedAchievements'] = [];
-		const completedQuests: ProgressDelta['completedQuests'] = [];
+		// Succès : déblocage + crédit des récompenses (peut ajouter XP/pièces).
+		const unlockedAchievements = runAchievementChecks(date);
 
-		const after = getUserState();
+		// Montée(s) de niveau (couvre l'XP habitude + l'XP des succès).
+		const afterXp = getUserState();
+		const levelAfter = levelFromXp(afterXp.total_xp).level;
+		applyLevelUp(levelBefore, levelAfter, before.prestige);
+
+		const final = getUserState();
 		const delta: ProgressDelta = {
-			xpGained: xpAwarded - prevXp,
-			coinsGained: coinsAwarded - prevCoins + levelUpCoins,
-			totalXp: after.total_xp,
-			coins: after.coins,
-			freezes: after.freezes,
-			leveledUp,
-			newLevel: leveledUp ? levelAfter : null,
-			level: levelInfoFromState(after),
+			xpGained: final.total_xp - before.total_xp,
+			coinsGained: final.coins - before.coins,
+			totalXp: final.total_xp,
+			coins: final.coins,
+			freezes: final.freezes,
+			leveledUp: levelAfter > levelBefore,
+			newLevel: levelAfter > levelBefore ? levelAfter : null,
+			level: levelInfoFromState(final),
 			streakDays: resultingStreak,
 			unlockedAchievements,
-			completedQuests
+			completedQuests: []
 		};
 		return { log, delta, levelBefore, levelAfter };
 	})();
@@ -121,6 +127,7 @@ export function reverseHabitLog(habitId: number, date: string): ProgressDelta {
 			addCoins(-prior.coins_awarded);
 			deleteHabitLog(habitId, date);
 		}
+		recomputeQuestProgress(date);
 		const after = getUserState();
 		const streak = currentStreakFromDates(getHabitLogDates(habitId, 'done'), date);
 		return {
@@ -134,6 +141,35 @@ export function reverseHabitLog(habitId: number, date: string): ProgressDelta {
 			level: levelInfoFromState(after),
 			streakDays: streak,
 			unlockedAchievements: [],
+			completedQuests: []
+		};
+	})();
+}
+
+/** Crédite une récompense (quête, etc.) avec gestion niveau + succès. */
+export function grantRewards(xp: number, coins: number): ProgressDelta {
+	const db = getDb();
+	return db.transaction((): ProgressDelta => {
+		const before = getUserState();
+		const levelBefore = levelFromXp(before.total_xp).level;
+		addXp(xp);
+		addCoins(coins);
+		const unlockedAchievements = runAchievementChecks();
+		const afterXp = getUserState();
+		const levelAfter = levelFromXp(afterXp.total_xp).level;
+		applyLevelUp(levelBefore, levelAfter, before.prestige);
+		const final = getUserState();
+		return {
+			xpGained: final.total_xp - before.total_xp,
+			coinsGained: final.coins - before.coins,
+			totalXp: final.total_xp,
+			coins: final.coins,
+			freezes: final.freezes,
+			leveledUp: levelAfter > levelBefore,
+			newLevel: levelAfter > levelBefore ? levelAfter : null,
+			level: levelInfoFromState(final),
+			streakDays: 0,
+			unlockedAchievements,
 			completedQuests: []
 		};
 	})();

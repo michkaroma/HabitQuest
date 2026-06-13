@@ -1,6 +1,7 @@
 import type { RequestHandler } from './$types';
 import { getHabit, localDate, daysBetween } from '$lib/server/db';
 import { logHabit, reverseHabitLog } from '$lib/server/progression';
+import { getCurrentQuests } from '$lib/server/quests';
 import { PROGRESSION } from '$lib/config/progression';
 import { ok, fail } from '$lib/server/respond';
 import type { HabitStatus } from '$lib/types';
@@ -33,7 +34,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
 	const note = typeof body.note === 'string' ? body.note : null;
 
 	const { log, delta } = logHabit(id, date, status, note);
-	return ok({ delta, log, clientId: body.clientId ?? null });
+	return ok({ delta, log, quests: getCurrentQuests(), clientId: body.clientId ?? null });
 };
 
 export const DELETE: RequestHandler = async ({ params, request }) => {
@@ -41,5 +42,6 @@ export const DELETE: RequestHandler = async ({ params, request }) => {
 	if (!getHabit(id)) return fail('NOT_FOUND', 'Habitude introuvable.', 404);
 	const body = (await request.json().catch(() => ({}))) as { date?: string };
 	const date = clampDate(body.date);
-	return ok({ delta: reverseHabitLog(id, date) });
+	const delta = reverseHabitLog(id, date);
+	return ok({ delta, quests: getCurrentQuests() });
 };

@@ -1,7 +1,7 @@
 // src/lib/client/api.ts — wrapper fetch (gère le 401).
 // L'enfilement hors-ligne (outbox) est ajouté à l'étape 8.
 import { goto } from '$app/navigation';
-import type { ProgressDelta, HabitLog, HabitStatus } from '$lib/types';
+import type { ProgressDelta, HabitLog, HabitStatus, Quest } from '$lib/types';
 
 export class ApiFailure extends Error {
 	code: string;
@@ -33,6 +33,7 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
 export interface LogResponse {
 	delta: ProgressDelta;
 	log: HabitLog;
+	quests?: Quest[];
 	clientId: string | null;
 }
 
@@ -47,6 +48,15 @@ export async function postLog(
 	});
 }
 
-export async function deleteLog(habitId: number, date: string): Promise<{ delta: ProgressDelta }> {
+export async function deleteLog(
+	habitId: number,
+	date: string
+): Promise<{ delta: ProgressDelta; quests?: Quest[] }> {
 	return apiFetch(`/api/habits/${habitId}/log`, { method: 'DELETE', body: JSON.stringify({ date }) });
+}
+
+export async function claimQuest(
+	id: number
+): Promise<{ delta: ProgressDelta; quest: Quest; quests: Quest[] }> {
+	return apiFetch(`/api/quests/${id}/claim`, { method: 'POST' });
 }

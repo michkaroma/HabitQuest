@@ -2,6 +2,7 @@ import type { LayoutServerLoad } from './$types';
 import { listHabits, getHabitLog, getUserState, localDate } from '$lib/server/db';
 import { computeHabitStreaks } from '$lib/server/streaks';
 import { levelInfoFromState } from '$lib/server/progression';
+import { ensureQuests, recomputeQuestProgress } from '$lib/server/quests';
 import type { SyncStateResponse, UserStateRow } from '$lib/types';
 
 const EMPTY_USER: UserStateRow = {
@@ -37,12 +38,17 @@ export const load: LayoutServerLoad = ({ locals }) => {
 	}));
 	const globalStreak = today.reduce((m, h) => Math.max(m, h.streak), 0);
 	const user = getUserState();
+	const level = levelInfoFromState(user);
+
+	// Quêtes : génère (idempotent) puis recalcule la progression.
+	ensureQuests(level.level, date);
+	const quests = recomputeQuestProgress(date);
 
 	const sync: SyncStateResponse = {
 		userState: user,
-		level: levelInfoFromState(user),
+		level,
 		today: { date, habits: today, globalStreak },
-		quests: [] // branché à l'étape 5
+		quests
 	};
 	return { authed: true, ...sync };
 };
