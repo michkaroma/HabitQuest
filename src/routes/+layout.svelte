@@ -6,6 +6,7 @@
 	import BottomNav from '$lib/components/layout/BottomNav.svelte';
 	import ToastHost from '$lib/components/feedback/ToastHost.svelte';
 	import OverlayHost from '$lib/components/feedback/OverlayHost.svelte';
+	import SosButton from '$lib/components/sos/SosButton.svelte';
 	import { gameState } from '$lib/stores/gameState.svelte';
 
 	let { children, data }: { children: import('svelte').Snippet; data: LayoutData } = $props();
@@ -32,6 +33,7 @@
 		</main>
 		<BottomNav />
 	</div>
+	<SosButton />
 	<ToastHost />
 	<OverlayHost />
 {:else}

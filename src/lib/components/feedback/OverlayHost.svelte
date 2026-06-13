@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { celebration } from '$lib/stores/celebration.svelte';
 	import LevelUpOverlay from './LevelUpOverlay.svelte';
-	// SosSheet est branché à l'étape 7.
+	import SosSheet from '$lib/components/sos/SosSheet.svelte';
 </script>
 
 {#if celebration.levelUp}
@@ -11,3 +11,5 @@
 		onclose={() => celebration.clearLevelUp()}
 	/>
 {/if}
+
+<SosSheet />
