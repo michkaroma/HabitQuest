@@ -63,7 +63,7 @@ scripts/            seed.ts (données de démo), generate-icons.ts
 - [x] **Étape 1 — Setup** : SvelteKit + TS + Tailwind + SQLite (deps) + PWA. Build & check OK.
 - [x] **Étape 2 — Couche données** : schéma + migrations + `db.ts` + `types.ts` + `streaks.ts`. Check OK, schéma vérifié.
 - [x] **Étape 3 — Boucle principale** : CRUD habitudes + écran « Aujourd'hui » + validation 1 tap + auth (cookie HMAC). Vérifié (login/CRUD/validation/idempotence, check + dev).
-- [ ] **Étape 4 — Progression** : XP/niveaux/pièces/séries + tableau de bord + barre d'XP.
+- [x] **Étape 4 — Progression** : tableau de bord (AvatarCard évolutif, en-tête niveau/XP/pièces, BottomNav), tokens de design, overlay montée de niveau + toasts. Build & rendu vérifiés. NB : couleur `ink` (pas `text`, collision préfixe `text-`).
 - [ ] **Étape 5 — Quêtes + succès**.
 - [ ] **Étape 6 — Avatar + boutique**.
 - [ ] **Étape 7 — Module addictions** (boss, clean, argent, santé, SOS, journal).

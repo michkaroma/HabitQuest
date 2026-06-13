@@ -1,24 +1,25 @@
-import type { PageServerLoad } from './$types';
+import type { RequestHandler } from './$types';
 import { listHabits, getHabitLog, getUserState, localDate } from '$lib/server/db';
 import { computeHabitStreaks } from '$lib/server/streaks';
 import { levelInfoFromState } from '$lib/server/progression';
+import { ok } from '$lib/server/respond';
 import type { SyncStateResponse } from '$lib/types';
 
-export const load: PageServerLoad = () => {
+export const GET: RequestHandler = () => {
 	const date = localDate();
 	const habits = listHabits();
-	const today = habits.map((h) => {
-		const streak = computeHabitStreaks(h.id, date).current;
-		return { habit: h, log: getHabitLog(h.id, date), streak };
-	});
-	const globalStreak = today.reduce((max, h) => Math.max(max, h.streak), 0);
+	const today = habits.map((h) => ({
+		habit: h,
+		log: getHabitLog(h.id, date),
+		streak: computeHabitStreaks(h.id, date).current
+	}));
+	const globalStreak = today.reduce((m, h) => Math.max(m, h.streak), 0);
 	const user = getUserState();
-
 	const payload: SyncStateResponse = {
 		userState: user,
 		level: levelInfoFromState(user),
 		today: { date, habits: today, globalStreak },
 		quests: [] // branché à l'étape 5
 	};
-	return payload;
+	return ok(payload);
 };

@@ -37,13 +37,13 @@
 	<div class="flex flex-col items-center gap-2 text-center">
 		<div class="text-5xl">🎮</div>
 		<h1 class="text-2xl font-extrabold tracking-tight">HabitQuest</h1>
-		<p class="text-sm text-slate-400">Entre ton mot de passe pour continuer.</p>
+		<p class="text-sm text-muted">Entre ton mot de passe pour continuer.</p>
 	</div>
 
 	<form class="flex w-full flex-col gap-3" onsubmit={submit}>
 		<input
 			type="password"
-			class="w-full rounded-xl border border-border bg-surface-2 px-4 py-3 text-center outline-none focus:border-primary"
+			class="w-full rounded-xl border border-border bg-surface2 px-4 py-3 text-center outline-none focus:border-primary"
 			bind:value={password}
 			placeholder="Mot de passe"
 			autocomplete="current-password"

@@ -62,7 +62,7 @@
 
 <main class="mx-auto flex max-w-md flex-col gap-4 px-4 pb-24 pt-4">
 	<div class="flex items-center justify-between">
-		<a href="/" class="text-sm text-slate-400 hover:text-slate-200">← Aujourd'hui</a>
+		<a href="/" class="text-sm text-muted hover:text-slate-200">← Aujourd'hui</a>
 		<h1 class="text-xl font-extrabold">Mes habitudes</h1>
 		<button class="text-sm font-semibold text-primary" onclick={() => { creating = !creating; editing = null; }}>
 			{creating ? 'Fermer' : '+ Nouvelle'}
@@ -82,12 +82,12 @@
 			</div>
 		{:else}
 			<div class="card flex items-center gap-3">
-				<span class="grid h-10 w-10 place-items-center rounded-xl bg-surface-2 text-xl">
+				<span class="grid h-10 w-10 place-items-center rounded-xl bg-surface2 text-xl">
 					{h.icon ?? (h.type === 'break' ? '🚫' : '✨')}
 				</span>
 				<div class="min-w-0 flex-1">
 					<div class="truncate font-semibold">{h.name}</div>
-					<div class="text-xs text-slate-400">
+					<div class="text-xs text-muted">
 						{h.type === 'break' ? 'À arrêter' : 'À construire'}
 						{#if h.category}· {h.category}{/if} · diff. {h.difficulty}
 					</div>
@@ -101,14 +101,14 @@
 	{/each}
 
 	{#if data.active.length === 0 && !creating}
-		<div class="card py-8 text-center text-slate-400">Aucune habitude active.</div>
+		<div class="card py-8 text-center text-muted">Aucune habitude active.</div>
 	{/if}
 
 	{#if data.archived.length > 0}
-		<h2 class="mt-4 text-sm font-semibold text-slate-400">Archivées</h2>
+		<h2 class="mt-4 text-sm font-semibold text-muted">Archivées</h2>
 		{#each data.archived as h (h.id)}
 			<div class="card flex items-center gap-3 opacity-70">
-				<span class="grid h-10 w-10 place-items-center rounded-xl bg-surface-2 text-xl">
+				<span class="grid h-10 w-10 place-items-center rounded-xl bg-surface2 text-xl">
 					{h.icon ?? '📦'}
 				</span>
 				<div class="min-w-0 flex-1 truncate font-semibold">{h.name}</div>
