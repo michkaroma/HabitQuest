@@ -19,7 +19,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 		password = String(f.get('password') ?? '');
 	}
 
-	if (!passwordMatches(password)) {
+	if (!password || !passwordMatches(password)) {
 		return fail('BAD_PASSWORD', 'Mot de passe incorrect.', 401);
 	}
 

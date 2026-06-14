@@ -37,7 +37,7 @@ export function levelInfoFromState(user: UserStateRow): LevelInfo {
 }
 
 /** Crédite des pièces de montée de niveau et journalise l'événement. */
-function applyLevelUp(levelBefore: number, levelAfter: number, prestige: number): void {
+export function applyLevelUp(levelBefore: number, levelAfter: number, prestige: number): void {
 	if (levelAfter <= levelBefore) return;
 	let coins = 0;
 	for (let l = levelBefore + 1; l <= levelAfter; l++) coins += coinsForLevelUp(l);
@@ -122,10 +122,23 @@ export function reverseHabitLog(habitId: number, date: string): ProgressDelta {
 	const db = getDb();
 	return db.transaction((): ProgressDelta => {
 		const prior = getHabitLog(habitId, date);
+		const before = getUserState();
+		const levelBefore = levelFromXp(before.total_xp).level;
 		if (prior) {
 			addXp(-prior.xp_awarded);
 			addCoins(-prior.coins_awarded);
 			deleteHabitLog(habitId, date);
+			// Annule symétriquement la/les montée(s) de niveau induites par ce log
+			// (sinon tap/un-tap autour d'un palier farmerait des pièces).
+			const levelAfter = levelFromXp(getUserState().total_xp).level;
+			if (levelAfter < levelBefore) {
+				let coins = 0;
+				for (let l = levelAfter + 1; l <= levelBefore; l++) coins += coinsForLevelUp(l);
+				addCoins(-coins);
+				getDb()
+					.prepare(`DELETE FROM level_events WHERE type='level_up' AND seen=0 AND to_level > ?`)
+					.run(levelAfter);
+			}
 		}
 		recomputeQuestProgress(date);
 		const after = getUserState();

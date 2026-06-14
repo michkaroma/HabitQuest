@@ -48,7 +48,8 @@ export async function postLog(
 	body: { date: string; status?: HabitStatus; note?: string | null }
 ): Promise<LogOutcome> {
 	const enqueue = async (): Promise<{ queued: true }> => {
-		await enqueueLog({ habitId, date: body.date, status: body.status, note: body.note });
+		const stored = await enqueueLog({ habitId, date: body.date, status: body.status, note: body.note });
+		if (!stored) throw new ApiFailure('OFFLINE_UNAVAILABLE', 'Stockage hors-ligne indisponible.');
 		sync.markPending();
 		return { queued: true };
 	};

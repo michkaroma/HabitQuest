@@ -80,6 +80,12 @@ export function localDate(d: Date = new Date()): string {
 	return `${y}-${m}-${day}`;
 }
 
+/** Horodatage local 'YYYY-MM-DD HH:MM:SS' (cohérent avec localDate). */
+export function localDateTime(d: Date = new Date()): string {
+	const p = (n: number) => String(n).padStart(2, '0');
+	return `${localDate(d)} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}
+
 export function previousDate(date: string): string {
 	const [y, m, d] = date.split('-').map(Number);
 	const dt = new Date(y, m - 1, d);
@@ -643,11 +649,12 @@ export function relapse(
 export function addTriggerEntry(input: NewTriggerEntry): TriggerEntry {
 	const info = getDb()
 		.prepare(
-			`INSERT INTO trigger_journal (target_id, trigger, craving, note, gave_in)
-       VALUES (@target_id, @trigger, @craving, @note, @gave_in)`
+			`INSERT INTO trigger_journal (target_id, date, trigger, craving, note, gave_in)
+       VALUES (@target_id, @date, @trigger, @craving, @note, @gave_in)`
 		)
 		.run({
 			target_id: input.target_id ?? null,
+			date: localDateTime(),
 			trigger: input.trigger ?? null,
 			craving: input.craving ?? null,
 			note: input.note ?? null,

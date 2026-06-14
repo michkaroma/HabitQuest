@@ -49,13 +49,14 @@ function hasIDB(): boolean {
 	return typeof indexedDB !== 'undefined';
 }
 
+/** Met une validation en file. Renvoie `false` si le stockage local est indisponible. */
 export async function enqueueLog(input: {
 	habitId: number;
 	date: string;
 	status?: HabitStatus;
 	note?: string | null;
-}): Promise<void> {
-	if (!hasIDB()) return;
+}): Promise<boolean> {
+	if (!hasIDB()) return false;
 	const record: OutboxLog = {
 		clientId: uid(),
 		habitId: input.habitId,
@@ -65,7 +66,12 @@ export async function enqueueLog(input: {
 		createdAt: Date.now(),
 		attempts: 0
 	};
-	await tx('readwrite', (s) => s.put(record));
+	try {
+		await tx('readwrite', (s) => s.put(record));
+		return true;
+	} catch {
+		return false;
+	}
 }
 
 export async function pendingLogs(): Promise<OutboxLog[]> {
@@ -104,6 +110,13 @@ export async function flushOutbox(): Promise<{ synced: number; remaining: number
 			if (res.ok || res.status === 409) {
 				await remove(item.clientId); // idempotent : doublon = succès
 				synced++;
+			} else if (res.status >= 400 && res.status < 500) {
+				await remove(item.clientId); // erreur permanente (404 habitude supprimée…) : on draine
+			} else {
+				// 5xx transitoire : on réessaiera, mais on abandonne après plusieurs tentatives
+				item.attempts = (item.attempts ?? 0) + 1;
+				if (item.attempts >= 5) await remove(item.clientId);
+				else await tx('readwrite', (s) => s.put(item));
 			}
 		} catch {
 			break; // hors-ligne à nouveau

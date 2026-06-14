@@ -63,7 +63,7 @@
 				<span
 					class="absolute -left-[2.1rem] flex h-7 w-7 items-center justify-center rounded-full text-sm
 						{reached ? 'bg-health text-bg' : 'bg-surface2 border border-border text-muted'}
-						{isNext && !reducedMotion ? 'animate-flame-pulse' : ''}"
+						{isNext && !reducedMotion() ? 'animate-flame-pulse' : ''}"
 					aria-hidden="true"
 				>
 					{#if reached}

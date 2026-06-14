@@ -101,8 +101,9 @@
 			raf = requestAnimationFrame(tick);
 		};
 
-		// seed a first bubble immediately so the screen isn't empty
-		if (bubbles.length === 0) spawnBubble();
+		// amorce une bulle (effet déclenché uniquement au démarrage ; pas de lecture
+		// réactive de `bubbles` ici pour éviter une ré-invalidation de l'effet)
+		spawnBubble();
 		raf = requestAnimationFrame(tick);
 
 		return () => cancelAnimationFrame(raf);

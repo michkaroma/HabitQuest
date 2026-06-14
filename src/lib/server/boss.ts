@@ -1,8 +1,10 @@
 // src/lib/server/boss.ts — état dérivé du boss (HP = jours cibles, 1 jour clean = 1 PV).
 import { BOSS } from '../config/boss';
 import { computeCleanStreak } from './streaks';
-import { localDate, getAddictionTarget, markBossDefeated, addCoins } from './db';
+import { getDb, localDate, getAddictionTarget, markBossDefeated, addCoins, getUserState } from './db';
 import { runAchievementChecks } from './achievements';
+import { applyLevelUp } from './progression';
+import { levelFromXp } from '../config/progression';
 import type { AddictionTarget, AddictionKind } from '../types';
 
 export type BossTier = 'colossal' | 'affaibli' | 'vacillant' | 'agonisant' | 'vaincu';
@@ -67,12 +69,18 @@ export function computeBossState(row: AddictionTarget, today: string = localDate
 
 /** Marque un boss vaincu : trophée + bonus de pièces (une fois) + vérif succès. */
 export function defeatBoss(id: number): { coinsAwarded: number; unlocked: ReturnType<typeof runAchievementChecks> } | null {
-	const before = getAddictionTarget(id);
-	if (!before || before.defeated_at) return null;
-	const target = markBossDefeated(id);
-	if (!target) return null;
-	const coinsAwarded = target.target_streak_days * BOSS.VICTORY_COIN_BONUS_PER_TARGET_DAY;
-	addCoins(coinsAwarded);
-	const unlocked = runAchievementChecks();
-	return { coinsAwarded, unlocked };
+	const db = getDb();
+	return db.transaction(() => {
+		const before = getAddictionTarget(id);
+		if (!before || before.defeated_at) return null;
+		const levelBefore = levelFromXp(getUserState().total_xp).level;
+		const target = markBossDefeated(id);
+		if (!target) return null;
+		const coinsAwarded = target.target_streak_days * BOSS.VICTORY_COIN_BONUS_PER_TARGET_DAY;
+		addCoins(coinsAwarded);
+		const unlocked = runAchievementChecks();
+		const levelAfter = levelFromXp(getUserState().total_xp).level;
+		applyLevelUp(levelBefore, levelAfter, getUserState().prestige);
+		return { coinsAwarded, unlocked };
+	})();
 }

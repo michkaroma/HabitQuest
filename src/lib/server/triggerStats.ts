@@ -35,7 +35,7 @@ export function getTriggerStats(targetId: number | null, days = 30): TriggerStat
 	const base = db
 		.prepare(
 			`SELECT COUNT(*) AS n, COALESCE(AVG(craving),0) AS avgC, COALESCE(AVG(gave_in),0) AS rate
-       FROM trigger_journal WHERE ${where} AND date >= datetime('now', @since)`
+       FROM trigger_journal WHERE ${where} AND date >= datetime('now', 'localtime', @since)`
 		)
 		.get(params) as { n: number; avgC: number; rate: number };
 
@@ -43,7 +43,7 @@ export function getTriggerStats(targetId: number | null, days = 30): TriggerStat
 		.prepare(
 			`SELECT COALESCE(NULLIF(trigger,''),'(non précisé)') AS trigger,
               COUNT(*) AS count, SUM(gave_in) AS gaveInCount
-       FROM trigger_journal WHERE ${where} AND date >= datetime('now', @since)
+       FROM trigger_journal WHERE ${where} AND date >= datetime('now', 'localtime', @since)
        GROUP BY trigger ORDER BY count DESC LIMIT 8`
 		)
 		.all(params) as TriggerCount[];
@@ -51,7 +51,7 @@ export function getTriggerStats(targetId: number | null, days = 30): TriggerStat
 	const byHourRaw = db
 		.prepare(
 			`SELECT CAST(strftime('%H', date) AS INTEGER) AS hour, COUNT(*) AS count
-       FROM trigger_journal WHERE ${where} AND date >= datetime('now', @since)
+       FROM trigger_journal WHERE ${where} AND date >= datetime('now', 'localtime', @since)
        GROUP BY hour`
 		)
 		.all(params) as HourBucket[];
@@ -64,7 +64,7 @@ export function getTriggerStats(targetId: number | null, days = 30): TriggerStat
 		.prepare(
 			`SELECT strftime('%Y-%m-%d', date) AS date, COUNT(*) AS total,
               SUM(gave_in) AS gaveIn, COALESCE(AVG(craving),0) AS avgCraving
-       FROM trigger_journal WHERE ${where} AND date >= datetime('now', @since)
+       FROM trigger_journal WHERE ${where} AND date >= datetime('now', 'localtime', @since)
        GROUP BY date ORDER BY date ASC`
 		)
 		.all(params) as (DayPoint & { avgCraving: number })[];

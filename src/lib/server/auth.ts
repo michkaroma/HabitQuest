@@ -1,8 +1,13 @@
 // src/lib/server/auth.ts
 // Mono-utilisateur : un seul APP_PASSWORD. Session = cookie signé HMAC,
 // auto-validant et auto-expirant (pas de table de session, pas de lib JWT).
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { createHmac, timingSafeEqual, randomBytes } from 'node:crypto';
 import { env } from '$env/dynamic/private';
+
+// Clé aléatoire par démarrage : utilisée UNIQUEMENT si ni SESSION_SECRET ni
+// APP_PASSWORD ne sont configurés. Évite toute clé « par défaut » connue
+// (les sessions ne survivent alors pas à un redémarrage — comportement voulu).
+const FALLBACK_SECRET = randomBytes(32).toString('hex');
 
 const COOKIE_NAME = 'hq_session';
 const MAX_AGE = 60 * 60 * 24 * 90; // 90 jours
@@ -15,7 +20,9 @@ export const SESSION_MAX_AGE = MAX_AGE;
 function secret(): string {
 	const explicit = env.SESSION_SECRET;
 	if (explicit && explicit.length >= 8) return explicit;
-	return (env.APP_PASSWORD ?? 'habitquest') + '::hq-session-v1';
+	const pw = env.APP_PASSWORD;
+	if (pw && pw.length > 0) return pw + '::hq-session-v1';
+	return FALLBACK_SECRET;
 }
 
 /** token = base64url(issuedAt) . base64url(hmac) */
@@ -42,6 +49,8 @@ export function verifySession(token: string | undefined, now: number): boolean {
 /** Comparaison à temps constant du mot de passe. */
 export function passwordMatches(input: string): boolean {
 	const expected = env.APP_PASSWORD ?? '';
+	// Un mot de passe vide (côté config ou saisie) ne doit jamais authentifier.
+	if (expected.length === 0 || input.length === 0) return false;
 	const a = Buffer.from(input);
 	const b = Buffer.from(expected);
 	if (a.length !== b.length) return false;
