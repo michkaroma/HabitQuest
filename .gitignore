@@ -26,3 +26,8 @@ data/*.sqlite-*
 Thumbs.db
 vite.config.ts.timestamp-*
 vite.config.js.timestamp-*
+
+# Docker
+.dockerignore
+Dockerfile
+docker-compose.yml
